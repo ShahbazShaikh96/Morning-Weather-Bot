@@ -125,6 +125,22 @@ class CommandsTests(unittest.TestCase):
         self.assertIn('unavailable', reply('/forecast 2026-12-30 15:00', self.now))
 
 
+class ConnectionTests(unittest.TestCase):
+    @patch('storage.psycopg.connect')
+    def test_pooler_compatible_timeout(self, connect):
+        ledger = Ledger('test-url')
+        connection = ledger.connect()
+        connect.assert_called_once_with('test-url', connect_timeout=10)
+        connection.execute.assert_called_once_with("SET LOCAL statement_timeout = '10s'")
+
+    @patch('storage.psycopg.connect')
+    def test_failed_timeout_setup_closes_connection(self, connect):
+        connect.return_value.execute.side_effect = RuntimeError('failure')
+        with self.assertRaises(RuntimeError):
+            Ledger('test-url').connect()
+        connect.return_value.close.assert_called_once()
+
+
 @unittest.skipUnless(os.getenv('TEST_DATABASE_URL'), 'Set TEST_DATABASE_URL for real Postgres integration')
 class PostgresTests(unittest.TestCase):
     def test_restart_and_concurrent_claim(self):
@@ -138,6 +154,8 @@ class PostgresTests(unittest.TestCase):
             with ThreadPoolExecutor(2) as pool:
                 self.assertEqual(sorted(pool.map(lambda ledger: ledger.claim(uid), [a, b])), [False, True])
             self.assertTrue(Ledger(url).contains(uid))
+            with a.connect() as conn:
+                self.assertEqual(conn.execute('SHOW statement_timeout').fetchone()[0], '10s')
             b.finish(uid, 'sent')
             self.assertFalse(a.claim(uid))
         finally:
