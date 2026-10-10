@@ -4,7 +4,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from commands import reply, target, TZ, CACHE, parse_command
 from storage import Ledger
-from web_app import create_app, RateLimited
+from web_app import create_app, RateLimited, telegram_html, send
 
 CONFIG = {'TELEGRAM_BOT_TOKEN': 'test', 'TELEGRAM_WEBHOOK_SECRET': 's' * 32, 'TELEGRAM_ALLOWED_USER_ID': '123'}
 HEADERS = {'X-Telegram-Bot-Api-Secret-Token': 's' * 32}
@@ -149,6 +149,26 @@ class CommandsTests(unittest.TestCase):
         CACHE.clear()
         self.assertIn('unavailable', reply('/clothes tomorrow evening', self.now))
         self.assertIn('unavailable', reply('/forecast 2026-12-30 15:00', self.now))
+
+
+class FormattingTests(unittest.TestCase):
+    def test_bold_labels_and_safe_dynamic_content(self):
+        result = telegram_html('Kent <Ohio> & area\nMon, 12 Oct 2026\n08:00–12:00 EDT\n\nTemperature: 50°F / 10°C\nWind: <unknown>\n\nWHAT TO WEAR\nWear a jacket & scarf')
+        self.assertIn('<b>Kent &lt;Ohio&gt; &amp; area</b>', result)
+        self.assertIn('<b>Temperature:</b> 50°F / 10°C', result)
+        self.assertIn('<b>Wind:</b> &lt;unknown&gt;', result)
+        self.assertIn('<b>WHAT TO WEAR</b>', result)
+        self.assertIn('Wear a jacket &amp; scarf', result)
+
+    @patch('web_app.urlopen')
+    def test_send_enables_html(self, remote):
+        import io
+        import json
+        remote.return_value.__enter__.return_value = io.StringIO('{"ok": true}')
+        send('fake', 123, 'Kent\nTemperature: 50°F / 10°C')
+        payload = json.loads(remote.call_args.args[0].data)
+        self.assertEqual(payload['parse_mode'], 'HTML')
+        self.assertIn('<b>Kent</b>', payload['text'])
 
 
 class ConnectionTests(unittest.TestCase):

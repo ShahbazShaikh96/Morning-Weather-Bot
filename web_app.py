@@ -1,5 +1,6 @@
 """Synchronous webhook: Telegram owns retries until a durable send claim exists."""
 import hmac
+from html import escape
 import json
 import logging
 import os
@@ -16,8 +17,24 @@ class RateLimited(Exception):
         self.seconds = max(1, min(int(seconds), 3600))
 
 
+def telegram_html(text):
+    """Bold structure while escaping all dynamic forecast and location content."""
+    output = []
+    for index, line in enumerate(text.splitlines()):
+        safe = escape(line)
+        if index == 0 or line in ('FORECAST', 'WHAT TO WEAR'):
+            safe = '<b>' + safe + '</b>'
+        elif re.match(r'^(Temperature|Precipitation|Wind|Gusts & feels-like):', line):
+            label, value = line.split(':', 1)
+            safe = '<b>' + escape(label) + ':</b>' + escape(value)
+        elif re.match(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), ', line) or re.match(r'^\d{2}:\d{2}', line):
+            safe = '<b>' + safe + '</b>'
+        output.append(safe)
+    return '\n'.join(output)
+
+
 def send(token, chat_id, text):
-    payload = json.dumps({'chat_id': chat_id, 'text': text, 'link_preview_options': {'is_disabled': True}}).encode()
+    payload = json.dumps({'chat_id': chat_id, 'text': telegram_html(text), 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}}).encode()
     try:
         with urlopen(Request(f'https://api.telegram.org/bot{token}/sendMessage', data=payload,
                              headers={'Content-Type': 'application/json'}), timeout=15) as response:

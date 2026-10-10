@@ -10,8 +10,8 @@ CACHE = ReadCache()
 TZ = ZoneInfo('America/New_York')
 BLOCKS = {'morning': (8, 12), 'afternoon': (12, 18), 'evening': (18, 22), 'night': (22, 24)}
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-HELP = """🌤 Kent Weather
-📍 Kent, Ohio 44240 · America/New_York
+HELP = """Kent Weather
+Kent, Ohio 44240 · America/New_York
 
 FORECAST
 /forecast tomorrow 15:00
@@ -104,7 +104,7 @@ def reply(text, now=None):
     try:
         command, start, end = parse_command(text, now)
     except ValueError as error:
-        return '⚠️ ' + str(error) + '\n\n' + HELP
+        return '' + str(error) + '\n\n' + HELP
     is_block = end > start
     point_url = f'https://api.weather.gov/points/{weather.LAT},{weather.LON}'
     point = CACHE.get(point_url, 86400, lambda: weather.request_json(point_url)['properties'])
@@ -117,7 +117,7 @@ def reply(text, now=None):
         if (a < end and b > start) if is_block else (a <= start < b):
             chosen.append(p)
             intervals.append((a, b))
-    heading = f'🌤 {weather.LOCATION}\n📅 {start:%a, %d %b %Y}\n🕒 {start:%H:%M}'
+    heading = f'{weather.LOCATION}\n{start:%a, %d %b %Y}\n{start:%H:%M}'
     heading += f'–{end:%H:%M} {start:%Z}' if is_block else f' {start:%Z}'
     if is_block:
         cursor = start
@@ -141,10 +141,10 @@ def reply(text, now=None):
     if any(not p.get('windSpeed') for p in chosen):
         wind_text += ' · some hours unavailable'
     lines = [heading, '', ' / '.join(dict.fromkeys(p.get('shortForecast') or 'Conditions unavailable' for p in chosen)), '',
-             '🌡 Temperature: ' + weather.temp(min(values)) + (' to ' + weather.temp(max(values)) if len(values) > 1 else ''),
-             '☔ Precipitation: ' + (f'up to {pop:.0f}%' if pop is not None else 'unavailable or incomplete'),
-             '💨 Wind: ' + wind_text]
+             'Temperature: ' + weather.temp(min(values)) + (' to ' + weather.temp(max(values)) if len(values) > 1 else ''),
+             'Precipitation: ' + (f'up to {pop:.0f}%' if pop is not None else 'unavailable or incomplete'),
+             'Wind: ' + wind_text]
     if command == 'clothes':
-        lines += ['', '👕 WHAT TO WEAR', weather.clothes(min(values), pop, bool(wind and max(wind) >= weather.RULES['windbreaker_wind_mph']))]
+        lines += ['', 'WHAT TO WEAR', weather.clothes(min(values), pop, bool(wind and max(wind) >= weather.RULES['windbreaker_wind_mph']))]
     lines += ['', 'NWS · hourly data cached up to 5 minutes', 'Gusts & feels-like: not included in this forecast feed.']
     return '\n'.join(lines)
