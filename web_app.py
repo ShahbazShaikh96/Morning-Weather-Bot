@@ -35,12 +35,21 @@ def send(token, chat_id, text):
 
 def create_app(config=None, ledger=None, responder=reply, sender=send):
     settings = dict(os.environ) if config is None else config
-    token = settings['TELEGRAM_BOT_TOKEN']
-    secret = settings['TELEGRAM_WEBHOOK_SECRET']
-    owner = int(settings['TELEGRAM_ALLOWED_USER_ID'])
-    if not token or owner <= 0 or not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', secret):
-        raise ValueError('Invalid bot configuration')
-    ledger = ledger or Ledger(settings['DATABASE_URL'])
+    # Trim accidental paste whitespace; never include values in exceptions.
+    token = settings.get('TELEGRAM_BOT_TOKEN', '').strip()
+    secret = settings.get('TELEGRAM_WEBHOOK_SECRET', '').strip()
+    owner_text = settings.get('TELEGRAM_ALLOWED_USER_ID', '').strip()
+    if not token:
+        raise ValueError('TELEGRAM_BOT_TOKEN is missing or empty')
+    if not re.fullmatch(r'[0-9]+', owner_text) or int(owner_text) <= 0:
+        raise ValueError('TELEGRAM_ALLOWED_USER_ID must be a positive numeric personal user ID; channel IDs and usernames are invalid')
+    owner = int(owner_text)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', secret):
+        raise ValueError('TELEGRAM_WEBHOOK_SECRET must contain 32–256 characters using only ASCII letters, numbers, underscore or hyphen; paste the secret contents without quotes')
+    database_url = settings.get('DATABASE_URL', '').strip()
+    if ledger is None and not database_url:
+        raise ValueError('DATABASE_URL is missing or empty')
+    ledger = ledger or Ledger(database_url)
     ledger.initialize()
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 65536
