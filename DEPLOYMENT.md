@@ -146,3 +146,19 @@ the cache. /help already avoids NWS entirely. The daily briefing remains unchang
 This cache does not replace the durable Neon update ledger. Render idle startup and
 Neon wake-up/network latency still apply; instant replies after idle are not guaranteed.
 No scheduled keep-alive, paid service, or additional credential is introduced.
+
+## Natural dates and reply layout
+
+Private forecast and clothing commands accept today/tomorrow, full weekday names,
+ISO dates, and English month/day forms with optional ordinal suffix and year.
+Examples: `/forecast Monday morning`, `/forecast 11th October`,
+`/forecast October 11 at 3pm`, `/clothes tomorrow afternoon`.
+Date-only requests use noon and show that time explicitly. A weekday uses the next
+occurrence with a future start time. A month/day without year uses the next date
+occurrence. Past explicit dates are rejected. Morning is 08–12, afternoon 12–18,
+evening 18–22, night 22–00. A block requires complete hourly coverage. All dates
+use America/New_York; parsing a distant date does not guarantee NWS coverage.
+Replies separate location/time, weather measurements, clothing and source notes.
+Wind is shown when present; gusts and feels-like are not fetched by this app.
+NWS forecastGridData is a separate feed with windGust; adding it would require
+interval/unit matching and a separate cached request.

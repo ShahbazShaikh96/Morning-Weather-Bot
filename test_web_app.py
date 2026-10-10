@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime
 from unittest.mock import Mock, patch
-from commands import reply, target, TZ, CACHE
+from commands import reply, target, TZ, CACHE, parse_command
 from storage import Ledger
 from web_app import create_app, RateLimited
 
@@ -105,6 +105,25 @@ class CommandsTests(unittest.TestCase):
     def tearDown(self):
         CACHE.clear()
     now = datetime(2026, 10, 9, 8, tzinfo=TZ)
+
+    def test_natural_date_options(self):
+        for expression, expected in [
+            ('Monday morning', (2026, 10, 12, 8, 12)),
+            ('11th October', (2026, 10, 11, 12, 12)),
+            ('October 11 at 3pm', (2026, 10, 11, 15, 15)),
+            ('tomorrow afternoon', (2026, 10, 10, 12, 18)),
+            ('2026-10-12 9:30', (2026, 10, 12, 9, 9)),
+            ('Friday morning', (2026, 10, 16, 8, 12)),
+            ('tomorrow night', (2026, 10, 10, 22, 0)),
+        ]:
+            with self.subTest(expression=expression):
+                _, start, end = parse_command('/forecast ' + expression, self.now)
+                self.assertEqual((start.year, start.month, start.day, start.hour, end.hour), expected)
+        _, start, _ = parse_command('/clothes 1st January evening', self.now)
+        self.assertEqual(start.year, 2027)
+        for expression in ['31st February', 'Monday 25:00', 'tomorrow 13pm']:
+            with self.assertRaises(ValueError):
+                parse_command('/forecast ' + expression, self.now)
 
     def test_dst_and_past(self):
         for day, clock in [('2026-11-01', '01:30'), ('2027-03-14', '02:30'), ('2026-10-08', '15:00')]:
