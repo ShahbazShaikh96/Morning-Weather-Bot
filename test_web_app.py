@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime
 from unittest.mock import Mock, patch
-from commands import reply, target, TZ
+from commands import reply, target, TZ, CACHE
 from storage import Ledger
 from web_app import create_app, RateLimited
 
@@ -99,6 +99,11 @@ class WebTests(unittest.TestCase):
 
 
 class CommandsTests(unittest.TestCase):
+    def setUp(self):
+        CACHE.clear()
+
+    def tearDown(self):
+        CACHE.clear()
     now = datetime(2026, 10, 9, 8, tzinfo=TZ)
 
     def test_dst_and_past(self):
@@ -120,7 +125,9 @@ class CommandsTests(unittest.TestCase):
         fetch.side_effect = fixture
         self.assertIn('50°F / 10°C', reply('/forecast tomorrow 15:00', self.now))
         self.assertIn('umbrella', reply('/clothes tomorrow evening', self.now))
+        self.assertEqual(fetch.call_count, 2)  # point + hourly fetched once for both commands
         periods.pop()
+        CACHE.clear()
         self.assertIn('unavailable', reply('/clothes tomorrow evening', self.now))
         self.assertIn('unavailable', reply('/forecast 2026-12-30 15:00', self.now))
 
