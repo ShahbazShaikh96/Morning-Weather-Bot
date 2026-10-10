@@ -2,9 +2,9 @@ import os
 import unittest
 from datetime import datetime
 from unittest.mock import Mock, patch
-from commands import reply, target, TZ, CACHE
+from commands import reply, target, TZ, CACHE, parse_command
 from storage import Ledger
-from web_app import create_app, RateLimited
+from web_app import create_app, RateLimited, telegram_html, send
 
 CONFIG = {'TELEGRAM_BOT_TOKEN': 'test', 'TELEGRAM_WEBHOOK_SECRET': 's' * 32, 'TELEGRAM_ALLOWED_USER_ID': '123'}
 HEADERS = {'X-Telegram-Bot-Api-Secret-Token': 's' * 32}
@@ -106,6 +106,25 @@ class CommandsTests(unittest.TestCase):
         CACHE.clear()
     now = datetime(2026, 10, 9, 8, tzinfo=TZ)
 
+    def test_natural_date_options(self):
+        for expression, expected in [
+            ('Monday morning', (2026, 10, 12, 8, 12)),
+            ('11th October', (2026, 10, 11, 12, 12)),
+            ('October 11 at 3pm', (2026, 10, 11, 15, 15)),
+            ('tomorrow afternoon', (2026, 10, 10, 12, 18)),
+            ('2026-10-12 9:30', (2026, 10, 12, 9, 9)),
+            ('Friday morning', (2026, 10, 16, 8, 12)),
+            ('tomorrow night', (2026, 10, 10, 22, 0)),
+        ]:
+            with self.subTest(expression=expression):
+                _, start, end = parse_command('/forecast ' + expression, self.now)
+                self.assertEqual((start.year, start.month, start.day, start.hour, end.hour), expected)
+        _, start, _ = parse_command('/clothes 1st January evening', self.now)
+        self.assertEqual(start.year, 2027)
+        for expression in ['31st February', 'Monday 25:00', 'tomorrow 13pm']:
+            with self.assertRaises(ValueError):
+                parse_command('/forecast ' + expression, self.now)
+
     def test_dst_and_past(self):
         for day, clock in [('2026-11-01', '01:30'), ('2027-03-14', '02:30'), ('2026-10-08', '15:00')]:
             with self.assertRaises(ValueError): target(day, clock, self.now)
@@ -130,6 +149,26 @@ class CommandsTests(unittest.TestCase):
         CACHE.clear()
         self.assertIn('unavailable', reply('/clothes tomorrow evening', self.now))
         self.assertIn('unavailable', reply('/forecast 2026-12-30 15:00', self.now))
+
+
+class FormattingTests(unittest.TestCase):
+    def test_bold_labels_and_safe_dynamic_content(self):
+        result = telegram_html('Kent <Ohio> & area\nMon, 12 Oct 2026\n08:00–12:00 EDT\n\nTemperature: 50°F / 10°C\nWind: <unknown>\n\nWHAT TO WEAR\nWear a jacket & scarf')
+        self.assertIn('<b>Kent &lt;Ohio&gt; &amp; area</b>', result)
+        self.assertIn('<b>Temperature:</b> 50°F / 10°C', result)
+        self.assertIn('<b>Wind:</b> &lt;unknown&gt;', result)
+        self.assertIn('<b>WHAT TO WEAR</b>', result)
+        self.assertIn('Wear a jacket &amp; scarf', result)
+
+    @patch('web_app.urlopen')
+    def test_send_enables_html(self, remote):
+        import io
+        import json
+        remote.return_value.__enter__.return_value = io.StringIO('{"ok": true}')
+        send('fake', 123, 'Kent\nTemperature: 50°F / 10°C')
+        payload = json.loads(remote.call_args.args[0].data)
+        self.assertEqual(payload['parse_mode'], 'HTML')
+        self.assertIn('<b>Kent</b>', payload['text'])
 
 
 class ConnectionTests(unittest.TestCase):
