@@ -13,7 +13,15 @@ class Ledger:
         self.url = url
 
     def connect(self):
-        return psycopg.connect(self.url, connect_timeout=10, options='-c statement_timeout=10000')
+        # Neon transaction pooling rejects statement_timeout in startup options.
+        # Configure it inside each transaction, on the same borrowed connection.
+        conn = psycopg.connect(self.url, connect_timeout=10)
+        try:
+            conn.execute("SET LOCAL statement_timeout = '10s'")
+        except Exception:
+            conn.close()
+            raise
+        return conn
 
     def initialize(self):
         with self.connect() as conn:
