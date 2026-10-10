@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: kent-weather-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn 'web_app:create_app()' --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 --access-logfile /dev/null
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.11
+      - key: WEATHER_TIMEZONE
+        value: America/New_York
+      - key: NWS_USER_AGENT
+        value: MorningWeatherBot/2.0 (github.com/ShahbazShaikh96/Morning-Weather-Bot)
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ALLOWED_USER_ID
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
