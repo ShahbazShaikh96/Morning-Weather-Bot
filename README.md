@@ -60,17 +60,17 @@ All command times use **America/New_York**. Past times are rejected, as are none
 
 Illustrative values, not a live forecast:
 
-> **Kent, Ohio 44240**  
-> **Mon, 12 Oct 2026**  
+> **Kent, Ohio 44240**<br>
+> **Mon, 12 Oct 2026**<br>
 > **08:00–12:00 EDT**
 >
 > Partly Cloudy
 >
-> **Temperature:** 50°F / 10°C to 61°F / 16°C  
-> **Precipitation:** up to 20%  
+> **Temperature:** 50°F / 10°C to 61°F / 16°C<br>
+> **Precipitation:** up to 20%<br>
 > **Wind:** W 5 mph
 >
-> **WHAT TO WEAR**  
+> **WHAT TO WEAR**<br>
 > Light jacket or hoodie, long pants, sneakers.
 >
 > NWS · hourly data cached up to 5 minutes
