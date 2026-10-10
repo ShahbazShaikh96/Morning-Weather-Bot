@@ -33,6 +33,24 @@ class WebTests(unittest.TestCase):
         self.respond = Mock(return_value='Forecast')
         self.client = create_app(CONFIG, self.store, self.respond, self.sender).test_client()
 
+    def test_configuration_errors_name_key_without_value(self):
+        for key, invalid in [('TELEGRAM_BOT_TOKEN', ''),
+                             ('TELEGRAM_ALLOWED_USER_ID', '-100123'),
+                             ('TELEGRAM_ALLOWED_USER_ID', '@private_user'),
+                             ('TELEGRAM_WEBHOOK_SECRET', 'private invalid secret!')]:
+            config = {**CONFIG, key: invalid}
+            with self.assertRaises(ValueError) as error:
+                create_app(config, MemoryLedger())
+            self.assertIn(key, str(error.exception))
+            if invalid:
+                self.assertNotIn(invalid, str(error.exception))
+
+    def test_configuration_trims_paste_whitespace(self):
+        config = {key: ' ' + value + '\n' for key, value in CONFIG.items()}
+        client = create_app(config, MemoryLedger(), self.respond, self.sender).test_client()
+        self.assertEqual(client.post('/telegram/webhook', json=update(), headers=HEADERS).status_code, 200)
+        self.sender.assert_called_once_with('test', 123, 'Forecast')
+
     def post(self, data=None, headers=HEADERS):
         return self.client.post('/telegram/webhook', json=data or update(), headers=headers)
 
