@@ -6,13 +6,15 @@ from datetime import datetime
 from unittest.mock import patch
 from urllib.request import Request, urlopen
 from werkzeug.serving import make_server
-from commands import reply, TZ
+from commands import reply, TZ, CACHE
 from test_web_app import CONFIG, HEADERS, MemoryLedger, update
 from web_app import create_app
 
 
 class EndToEndTest(unittest.TestCase):
     def test_http_forecast_duplicate_and_restart(self):
+        CACHE.clear()
+        self.addCleanup(CACHE.clear)
         sent, ledger = [], MemoryLedger()
         def fixture(url):
             if '/points/' in url: return {'properties': {'forecastHourly': 'hourly'}}

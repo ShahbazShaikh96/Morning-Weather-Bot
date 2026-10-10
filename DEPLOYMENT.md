@@ -135,3 +135,14 @@ To stop receiving commands, suspend/delete the Render service and remove the web
 using Telegram deleteWebhook through a hidden-token local tool; daily channel sends
 remain independent. Pending commands expire after 24h. Keep /healthz public; it exposes
 only availability, not user IDs or credentials.
+
+## Forecast response-time improvements
+
+The interactive app caches NWS point metadata for 24 hours and hourly periods for
+5 minutes in process memory. Repeated commands within five minutes avoid both NWS
+HTTP requests; concurrent requests share a single cache refresh. Replies disclose the
+five-minute cache window. Expired data is never served on errors, and restarts clear
+the cache. /help already avoids NWS entirely. The daily briefing remains unchanged.
+This cache does not replace the durable Neon update ledger. Render idle startup and
+Neon wake-up/network latency still apply; instant replies after idle are not guaranteed.
+No scheduled keep-alive, paid service, or additional credential is introduced.

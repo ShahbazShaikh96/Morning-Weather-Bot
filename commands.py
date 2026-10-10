@@ -3,6 +3,9 @@ import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import weather_bot as weather
+from forecast_cache import ReadCache
+
+CACHE = ReadCache()
 
 TZ = ZoneInfo('America/New_York')
 HELP = '''Kent weather — America/New_York
@@ -43,8 +46,10 @@ def reply(text, now=None):
     except ValueError as error:
         return str(error) + '\n' + HELP
     end = start + timedelta(hours=4) if clock == 'evening' else start
-    point = weather.request_json(f'https://api.weather.gov/points/{weather.LAT},{weather.LON}')['properties']
-    periods = weather.request_json(point['forecastHourly'])['properties']['periods']
+    point_url = f'https://api.weather.gov/points/{weather.LAT},{weather.LON}'
+    point = CACHE.get(point_url, 86400, lambda: weather.request_json(point_url)['properties'])
+    hourly_url = point['forecastHourly']
+    periods = CACHE.get(hourly_url, 300, lambda: weather.request_json(hourly_url)['properties']['periods'])
     chosen = []
     for p in periods:
         a, b = (datetime.fromisoformat(p[k]).astimezone(TZ) for k in ('startTime', 'endTime'))
@@ -71,5 +76,5 @@ def reply(text, now=None):
              'Wind: ' + ', '.join(dict.fromkeys(p.get('windSpeed', 'unavailable') for p in chosen))]
     if command == 'clothes':
         lines.append(weather.clothes(min(values), pop, bool(wind and max(wind) >= weather.RULES['windbreaker_wind_mph'])))
-    lines.append('Source: National Weather Service. Feels-like and gusts unavailable.')
+    lines.append('Source: National Weather Service (hourly data cached up to 5 minutes). Feels-like and gusts unavailable.')
     return '\n'.join(lines)
