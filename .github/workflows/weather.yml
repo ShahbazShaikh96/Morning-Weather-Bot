@@ -1,0 +1,54 @@
+name: Morning weather
+on:
+  push:
+    paths:
+      - "*.py"
+      - ".github/workflows/weather.yml"
+  workflow_dispatch:
+    inputs:
+      test_connection:
+        description: Send a Telegram connection test only (no weather required)
+        type: boolean
+        default: false
+      send_message:
+        description: Send to Telegram (otherwise preview only)
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 8 * * *'
+      timezone: America/New_York
+
+permissions:
+  contents: read
+concurrency:
+  group: morning-weather
+  cancel-in-progress: false
+
+jobs:
+  weather:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      WEATHER_LAT: ${{ vars.WEATHER_LAT || '41.154' }}
+      WEATHER_LON: ${{ vars.WEATHER_LON || '-81.358' }}
+      WEATHER_LOCATION: ${{ vars.WEATHER_LOCATION || 'Kent, Ohio 44240' }}
+      WEATHER_TIMEZONE: America/New_York
+      NWS_USER_AGENT: MorningWeatherBot/1.0 (github.com/${{ github.repository }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test rules and error handling
+        run: python -m unittest -v test_weather_bot.py
+      - name: Test Telegram connection
+        if: github.event_name == 'workflow_dispatch' && inputs.test_connection
+        run: python weather_bot.py --test-message
+      - name: Preview without sending
+        if: github.event_name == 'workflow_dispatch' && !inputs.send_message && !inputs.test_connection
+        run: python weather_bot.py --dry-run
+      - name: Deliver weather
+        if: github.event_name == 'schedule' || (inputs.send_message && !inputs.test_connection)
+        run: python weather_bot.py
